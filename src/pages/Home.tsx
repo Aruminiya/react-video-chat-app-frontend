@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+import { io, Socket } from 'socket.io-client';
+import type { DefaultEventsMap } from '@socket.io/component-emitter';
 
 // 定義 React 組件 Home，負責視訊連線的邏輯和界面
 function Home() {
@@ -7,8 +8,10 @@ function Home() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   // 定義遠端視訊元素的引用，用於顯示對方用戶的畫面
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
+
   // 儲存 Socket.io 連線實例
-  const [socket, setSocket] = useState<any>(null);
+  const socketRef = useRef<Socket<DefaultEventsMap, DefaultEventsMap> | null>(null);
+
   // 儲存用戶輸入的房間 ID
   const [roomId, setRoomId] = useState('');
   // 控制是否在房間中（用於禁用輸入框和按鈕）
@@ -33,7 +36,7 @@ function Home() {
     // 初始化 Socket.io 連線，連接到後端伺服器
     const socketIo = io('http://localhost:3000');
     // 儲存 Socket.io 實例
-    setSocket(socketIo);
+    socketRef.current = socketIo;
     // 標記為已進入房間，禁用輸入框和按鈕
     setInRoom(true);
 
@@ -74,7 +77,7 @@ function Home() {
     socketIo.emit('create', { roomId });
 
     // 監聽來自對方的 offer 事件
-    socketIo.on('offer', async (data: any) => {
+    socketIo.on('offer', async (data) => {
       // 設置對方的 offer 為遠端描述，提供對方的 SDP 資訊
       // 此步驟不會觸發 ICE 收集，但為後續連線協商提供必要資訊
       await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -88,7 +91,7 @@ function Home() {
     });
 
     // 監聽來自對方的 ICE candidate 事件
-    socketIo.on('candidate', async (data: any) => {
+    socketIo.on('candidate', async (data) => {
       // 如果收到對方的 ICE candidate，添加到 RTCPeerConnection
       // 這需要遠端 SDP（setRemoteDescription）已設置，否則無法正確處理
       if (data.candidate) {
@@ -102,7 +105,7 @@ function Home() {
     // 初始化 Socket.io 連線，連接到後端伺服器
     const socketIo = io('http://localhost:3000');
     // 儲存 Socket.io 實例
-    setSocket(socketIo);
+    socketRef.current = socketIo;
     // 標記為已進入房間，禁用輸入框和按鈕
     setInRoom(true);
 
@@ -147,14 +150,14 @@ function Home() {
     socketIo.emit('offer', { roomId, offer });
 
     // 監聽來自對方的 answer 事件
-    socketIo.on('answer', async (data: any) => {
+    socketIo.on('answer', async (data) => {
       // 設置對方的 answer 為遠端描述，提供對方的 SDP 資訊
       // 此步驟不會觸發新的 ICE 收集，但完成 SDP 協商，確保連線正常進行
       await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
     });
 
     // 監聽來自對方的 ICE candidate 事件
-    socketIo.on('candidate', async (data: any) => {
+    socketIo.on('candidate', async (data) => {
       // 如果收到對方的 ICE candidate，添加到 RTCPeerConnection
       // 這需要遠端 SDP（setRemoteDescription）已設置，否則無法正確處理
       if (data.candidate) {
